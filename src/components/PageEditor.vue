@@ -81,7 +81,7 @@ function handleResizeMove(event: MouseEvent) {
   const newMinRows = Math.max(2, resizeStartRows.value + deltaRows);
 
   if (newMinRows !== props.page.gridConfig.minRows) {
-    pagesStore.updatePage(props.page.id, {
+    pagesStore.updatePageLocal(props.page.id, {
       gridConfig: { ...props.page.gridConfig, minRows: newMinRows },
     });
   }
@@ -188,7 +188,7 @@ function handleCancel() {
     positiveText: "Discard",
     negativeText: "Keep Editing",
     onPositiveClick: async () => {
-      await pagesStore.loadPages();
+      await pagesStore.reloadPage(props.page.id);
       emit("update:isEditMode", false);
     },
   });
@@ -214,7 +214,7 @@ function startEditingName() {
 
 function saveName() {
   if (pageName.value.trim()) {
-    pagesStore.updatePage(props.page.id, { name: pageName.value.trim() });
+    pagesStore.updatePageLocal(props.page.id, { name: pageName.value.trim() });
   } else {
     pageName.value = props.page.name;
   }

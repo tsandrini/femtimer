@@ -71,6 +71,13 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
+  function updatePageLocal(id: string, updates: Partial<Page>) {
+    const index = pages.value.findIndex((p) => p.id === id);
+    if (index !== -1) {
+      pages.value[index] = { ...pages.value[index], ...updates, updatedAt: new Date() };
+    }
+  }
+
   async function deletePage(id: string) {
     await dbDeletePage(id);
     const index = pages.value.findIndex((p) => p.id === id);
@@ -143,6 +150,16 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
+  async function reloadPage(pageId: string) {
+    const savedPage = await getPage(pageId);
+    if (savedPage) {
+      const index = pages.value.findIndex((p) => p.id === pageId);
+      if (index !== -1) {
+        pages.value[index] = savedPage;
+      }
+    }
+  }
+
   return {
     pages,
     currentPageId,
@@ -154,6 +171,7 @@ export const usePagesStore = defineStore("pages", () => {
     loadPages,
     createPage,
     updatePage,
+    updatePageLocal,
     deletePage,
     setCurrentPage,
     setEditMode,
@@ -161,5 +179,6 @@ export const usePagesStore = defineStore("pages", () => {
     updateWidget,
     removeWidget,
     savePage,
+    reloadPage,
   };
 });
