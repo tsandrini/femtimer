@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageEvent, usePageEvents } from "@/composables/usePageEvents";
 import {
   DEFAULT_CATEGORY_ID,
   DEFAULT_SCRAMBLE_TYPE_ID,
@@ -32,6 +33,14 @@ const emit = defineEmits<{
   (e: "scrambleGenerated", scramble: string): void;
   (e: "updateConfig", config: Partial<ScrambleWidgetConfig>): void;
 }>();
+
+// Page-level event bus for cross-widget communication
+const pageEvents = usePageEvents();
+
+// Listen for solveFinished event to generate next scramble
+usePageEvent("solveFinished", () => {
+  generateScramble();
+});
 
 const scramble = ref("Generating...");
 const isGenerating = ref(false);
@@ -99,7 +108,15 @@ async function generateScramble() {
     );
     const result = await randomScrambleForEvent(eventCode);
     scramble.value = result.toString();
+
+    // Emit via component event (for direct parent communication)
     emit("scrambleGenerated", scramble.value);
+
+    // Emit via page event bus (for cross-widget communication)
+    pageEvents?.emit("scrambleGenerated", {
+      scramble: scramble.value,
+      eventCode,
+    });
   } catch {
     scramble.value = "Error generating scramble";
   } finally {
@@ -127,12 +144,6 @@ watch(
 
 onMounted(() => {
   generateScramble();
-});
-
-// Expose method for parent components to trigger new scramble
-defineExpose({
-  generateScramble,
-  currentScramble: scramble,
 });
 </script>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import GridWidget from "@/components/GridWidget.vue";
 import WidgetPicker from "@/components/WidgetPicker.vue";
+import { providePageEvents } from "@/composables/usePageEvents";
 import { getWidgetRegistry } from "@/registry";
 import { usePagesStore } from "@/stores/pages";
 import type { Page } from "@/types/pages";
@@ -36,6 +37,9 @@ const pagesStore = usePagesStore();
 const message = useMessage();
 const dialog = useDialog();
 const registry = getWidgetRegistry();
+
+// Provide page-level event bus for widget communication
+providePageEvents();
 
 const showWidgetPicker = ref(false);
 const editingName = ref(false);

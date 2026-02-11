@@ -215,6 +215,7 @@ function stopResize() {
   min-height: 0;
   border-radius: 12px;
   overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 .grid-widget.is-edit-mode {

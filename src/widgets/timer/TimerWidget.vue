@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePageEvents } from "@/composables/usePageEvents";
 import type { BaseWidgetConfig } from "@/types/widgets";
 import { NText } from "naive-ui";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
@@ -6,6 +7,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from "vue";
 export interface TimerWidgetConfig extends BaseWidgetConfig {
   holdTime: number;
   hideTimeWhileRunning: boolean;
+  autoNextScramble: boolean;
 }
 
 const props = defineProps<{
@@ -16,6 +18,9 @@ const props = defineProps<{
 
 const emit =
   defineEmits<(e: "solve", time: number, scramble: string) => void>();
+
+// Page-level event bus for cross-widget communication
+const pageEvents = usePageEvents();
 
 type TimerState = "idle" | "holding" | "ready" | "running" | "stopped";
 
@@ -84,6 +89,9 @@ function startTimer() {
   timerStartTime = performance.now();
   state.value = "running";
 
+  // Emit timerStarted event
+  pageEvents?.emit("timerStarted");
+
   function updateTimer() {
     currentTimeMs.value = performance.now() - timerStartTime;
     animationFrameId = requestAnimationFrame(updateTimer);
@@ -103,6 +111,11 @@ function stopTimer() {
 
   // Emit solve event
   emit("solve", currentTimeMs.value, ""); // scramble will be provided by parent
+
+  // Emit solveFinished event via page event bus if autoNextScramble is enabled
+  if (props.config.autoNextScramble) {
+    pageEvents?.emit("solveFinished", { time: currentTimeMs.value });
+  }
 }
 
 // Reset for next solve
@@ -132,6 +145,7 @@ function handleKeyDown(e: KeyboardEvent) {
 
     holdTimeout = setTimeout(() => {
       state.value = "ready";
+      pageEvents?.emit("timerReady");
     }, props.config.holdTime);
   }
 }

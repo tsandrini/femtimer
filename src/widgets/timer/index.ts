@@ -14,6 +14,7 @@ export const timerWidgetRegistration: WidgetRegistration = {
       borderless: true,
       holdTime: 300,
       hideTimeWhileRunning: false,
+      autoNextScramble: true,
     },
     defaultSize: { width: 6, height: 3 },
     minSize: { width: 4, height: 2 },
@@ -35,6 +36,14 @@ export const timerWidgetRegistration: WidgetRegistration = {
           type: "boolean",
           default: false,
           description: "Hide the time display during a solve",
+        },
+        {
+          key: "autoNextScramble",
+          label: "Auto next scramble",
+          type: "boolean",
+          default: true,
+          description:
+            "Automatically generate a new scramble when a solve is completed",
         },
       ],
     },
