@@ -196,11 +196,11 @@ function handleConfigureWidget(_widgetId: string) {
   message.info("Widget configuration coming soon");
 }
 
-function handleUpdateWidgetConfig(
+async function handleUpdateWidgetConfig(
   widgetId: string,
   config: Record<string, unknown>,
 ) {
-  pagesStore.updateWidgetConfig(props.page.id, widgetId, config);
+  await pagesStore.updateWidgetConfig(props.page.id, widgetId, config);
 }
 
 async function handleSave() {

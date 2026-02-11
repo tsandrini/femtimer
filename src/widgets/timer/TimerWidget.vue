@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { usePageEvents } from "@/composables/usePageEvents";
+import { useWidgetStateStore } from "@/stores/widgetState";
 import type { BaseWidgetConfig } from "@/types/widgets";
 import { NText } from "naive-ui";
 import { computed, onMounted, onUnmounted, ref, watch } from "vue";
@@ -22,15 +23,42 @@ const emit =
 // Page-level event bus for cross-widget communication
 const pageEvents = usePageEvents();
 
+// Widget state persistence
+const widgetStateStore = useWidgetStateStore();
+
 type TimerState = "idle" | "holding" | "ready" | "running" | "stopped";
 
-const state = ref<TimerState>("idle");
-const currentTimeMs = ref(0);
-const lastSolveTime = ref<number | null>(null);
+interface TimerWidgetState extends Record<string, unknown> {
+  state: TimerState;
+  currentTimeMs: number;
+  lastSolveTime: number | null;
+  timerStartTime: number;
+}
+
+// Load persisted state or use defaults
+const persistedState =
+  widgetStateStore.getState<TimerWidgetState>(props.instanceId);
+
+const state = ref<TimerState>(persistedState?.state ?? "idle");
+const currentTimeMs = ref(persistedState?.currentTimeMs ?? 0);
+const lastSolveTime = ref<number | null>(persistedState?.lastSolveTime ?? null);
 
 let holdTimeout: ReturnType<typeof setTimeout> | null = null;
-let timerStartTime = 0;
+let timerStartTime = persistedState?.timerStartTime ?? 0;
 let animationFrameId: number | null = null;
+
+// Save state to store whenever it changes
+function saveState() {
+  widgetStateStore.setState<TimerWidgetState>(props.instanceId, {
+    state: state.value,
+    currentTimeMs: currentTimeMs.value,
+    lastSolveTime: lastSolveTime.value,
+    timerStartTime,
+  });
+}
+
+// Watch for state changes and persist
+watch([state, currentTimeMs, lastSolveTime], saveState, { deep: true });
 
 // Format time for display
 const formattedTime = computed(() => {
@@ -88,6 +116,7 @@ const timerColorClass = computed(() => {
 function startTimer() {
   timerStartTime = performance.now();
   state.value = "running";
+  saveState(); // Persist timerStartTime
 
   // Emit timerStarted event
   pageEvents?.emit("timerStarted");
@@ -182,6 +211,15 @@ watch(
 onMounted(() => {
   window.addEventListener("keydown", handleKeyDown);
   window.addEventListener("keyup", handleKeyUp);
+
+  // Resume timer animation if it was running when unmounted
+  if (state.value === "running" && timerStartTime > 0) {
+    function updateTimer() {
+      currentTimeMs.value = performance.now() - timerStartTime;
+      animationFrameId = requestAnimationFrame(updateTimer);
+    }
+    animationFrameId = requestAnimationFrame(updateTimer);
+  }
 });
 
 onUnmounted(() => {

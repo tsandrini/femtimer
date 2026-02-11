@@ -141,7 +141,7 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
-  function updateWidgetConfig(
+  async function updateWidgetConfig(
     pageId: string,
     widgetId: string,
     configUpdates: Record<string, unknown>,
@@ -153,6 +153,8 @@ export const usePagesStore = defineStore("pages", () => {
         widget.config = { ...widget.config, ...configUpdates };
         widget.updatedAt = new Date();
         page.updatedAt = new Date();
+        // Persist config changes immediately to database
+        await savePage(pageId);
       }
     }
   }

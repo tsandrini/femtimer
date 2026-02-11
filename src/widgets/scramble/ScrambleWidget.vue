@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { usePageEvent, usePageEvents } from "@/composables/usePageEvents";
+import { useWidgetStateStore } from "@/stores/widgetState";
 import {
   DEFAULT_CATEGORY_ID,
   DEFAULT_SCRAMBLE_TYPE_ID,
@@ -37,14 +38,37 @@ const emit = defineEmits<{
 // Page-level event bus for cross-widget communication
 const pageEvents = usePageEvents();
 
+// Widget state persistence
+const widgetStateStore = useWidgetStateStore();
+
+interface ScrambleWidgetState extends Record<string, unknown> {
+  scramble: string;
+  isGenerating: boolean;
+}
+
+// Load persisted state or use defaults
+const persistedState =
+  widgetStateStore.getState<ScrambleWidgetState>(props.instanceId);
+
 // Listen for solveFinished event to generate next scramble
 usePageEvent("solveFinished", () => {
   generateScramble();
 });
 
-const scramble = ref("Generating...");
-const isGenerating = ref(false);
+const scramble = ref(persistedState?.scramble ?? "Generating...");
+const isGenerating = ref(persistedState?.isGenerating ?? false);
 const justCopied = ref(false);
+
+// Save state to store whenever it changes
+function saveState() {
+  widgetStateStore.setState<ScrambleWidgetState>(props.instanceId, {
+    scramble: scramble.value,
+    isGenerating: isGenerating.value,
+  });
+}
+
+// Watch for state changes and persist
+watch([scramble, isGenerating], saveState);
 
 // Font size mapping
 const fontSizeMap = {
@@ -143,7 +167,10 @@ watch(
 );
 
 onMounted(() => {
-  generateScramble();
+  // Only generate a new scramble if we don't have a persisted one
+  if (!persistedState?.scramble || scramble.value === "Generating...") {
+    generateScramble();
+  }
 });
 </script>
 
