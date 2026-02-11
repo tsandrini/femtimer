@@ -1,7 +1,7 @@
 import type { RouteRecordRaw } from "vue-router";
 import SettingsView from "./views/SettingsView.vue";
-import StatsView from "./views/StatsView.vue";
 import TimerView from "./views/TimerView.vue";
+import WidgetTestView from "./views/WidgetTestView.vue";
 
 export const routes: RouteRecordRaw[] = [
   {
@@ -10,13 +10,18 @@ export const routes: RouteRecordRaw[] = [
     component: TimerView,
   },
   {
-    path: "/stats",
-    name: "stats",
-    component: StatsView,
+    path: "/page/:pageId",
+    name: "page",
+    component: () => import("./views/PageView.vue"),
   },
   {
     path: "/settings",
     name: "settings",
     component: SettingsView,
+  },
+  {
+    path: "/test-widgets",
+    name: "widget-test",
+    component: WidgetTestView,
   },
 ];

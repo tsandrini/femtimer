@@ -4,6 +4,15 @@ import { defineConfig } from "vite";
 import { VitePWA } from "vite-plugin-pwa";
 
 export default defineConfig({
+  build: {
+    target: "esnext",
+  },
+  optimizeDeps: {
+    esbuildOptions: {
+      target: "esnext",
+    },
+    exclude: ["cubing"],
+  },
   plugins: [
     vue(),
     VitePWA({

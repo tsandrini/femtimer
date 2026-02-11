@@ -1,3 +1,8 @@
+// Re-export widget system types
+export * from "./widgets";
+export * from "./pages";
+export * from "./registry";
+
 export type CubeEvent =
   | "222"
   | "333"

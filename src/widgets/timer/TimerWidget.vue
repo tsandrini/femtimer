@@ -1,15 +1,27 @@
 <script setup lang="ts">
-import { randomScrambleForEvent } from "cubing/scramble";
-import { NCard, NSpace, NText } from "naive-ui";
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import type { BaseWidgetConfig } from "@/types/widgets";
+import { NText } from "naive-ui";
+import { computed, onMounted, onUnmounted, ref, watch } from "vue";
+
+export interface TimerWidgetConfig extends BaseWidgetConfig {
+  holdTime: number;
+  hideTimeWhileRunning: boolean;
+}
+
+const props = defineProps<{
+  instanceId: string;
+  config: TimerWidgetConfig;
+  isEditMode: boolean;
+}>();
+
+const emit =
+  defineEmits<(e: "solve", time: number, scramble: string) => void>();
 
 type TimerState = "idle" | "holding" | "ready" | "running" | "stopped";
 
 const state = ref<TimerState>("idle");
 const currentTimeMs = ref(0);
-const scramble = ref("Generating...");
-
-const HOLD_TIME = 300; // ms to hold before ready
+const lastSolveTime = ref<number | null>(null);
 
 let holdTimeout: ReturnType<typeof setTimeout> | null = null;
 let timerStartTime = 0;
@@ -26,8 +38,19 @@ const formattedTime = computed(() => {
   return `${minutes}:${seconds.padStart(5, "0")}`;
 });
 
+// Display time (may be hidden while running)
+const displayTime = computed(() => {
+  if (props.config.hideTimeWhileRunning && state.value === "running") {
+    return "...";
+  }
+  return formattedTime.value;
+});
+
 // Dynamic hint text based on state
 const hintText = computed(() => {
+  if (props.isEditMode) {
+    return "Timer disabled in edit mode";
+  }
   switch (state.value) {
     case "idle":
       return "Press and hold SPACE to start";
@@ -38,7 +61,7 @@ const hintText = computed(() => {
     case "running":
       return "Press SPACE to stop";
     case "stopped":
-      return "Press SPACE for next scramble";
+      return "Press SPACE for next solve";
     default:
       return "";
   }
@@ -55,13 +78,6 @@ const timerColorClass = computed(() => {
       return "";
   }
 });
-
-// Generate a new scramble
-async function generateScramble() {
-  scramble.value = "Generating...";
-  const result = await randomScrambleForEvent("333");
-  scramble.value = result.toString();
-}
 
 // Start the timer animation loop
 function startTimer() {
@@ -82,18 +98,22 @@ function stopTimer() {
     animationFrameId = null;
   }
   currentTimeMs.value = performance.now() - timerStartTime;
+  lastSolveTime.value = currentTimeMs.value;
   state.value = "stopped";
+
+  // Emit solve event
+  emit("solve", currentTimeMs.value, ""); // scramble will be provided by parent
 }
 
 // Reset for next solve
 function resetForNextSolve() {
   currentTimeMs.value = 0;
   state.value = "idle";
-  generateScramble();
 }
 
 // Handle key down
 function handleKeyDown(e: KeyboardEvent) {
+  if (props.isEditMode) return;
   if (e.code !== "Space" || e.repeat) return;
   e.preventDefault();
 
@@ -112,12 +132,13 @@ function handleKeyDown(e: KeyboardEvent) {
 
     holdTimeout = setTimeout(() => {
       state.value = "ready";
-    }, HOLD_TIME);
+    }, props.config.holdTime);
   }
 }
 
 // Handle key up
 function handleKeyUp(e: KeyboardEvent) {
+  if (props.isEditMode) return;
   if (e.code !== "Space") return;
   e.preventDefault();
 
@@ -134,8 +155,17 @@ function handleKeyUp(e: KeyboardEvent) {
   }
 }
 
+// Watch for edit mode changes - reset timer if entering edit mode
+watch(
+  () => props.isEditMode,
+  (isEdit) => {
+    if (isEdit && state.value === "running") {
+      stopTimer();
+    }
+  },
+);
+
 onMounted(() => {
-  generateScramble();
   window.addEventListener("keydown", handleKeyDown);
   window.addEventListener("keyup", handleKeyUp);
 });
@@ -149,76 +179,37 @@ onUnmounted(() => {
 </script>
 
 <template>
-  <div class="timer-view">
-    <NCard class="scramble-card">
-      <NText class="scramble-text">{{ scramble }}</NText>
-    </NCard>
-
+  <div class="timer-widget">
     <div class="timer-container">
       <div :class="['timer-display', timerColorClass]">
-        {{ formattedTime }}
+        {{ displayTime }}
       </div>
       <NText depth="3" class="timer-hint">
         {{ hintText }}
       </NText>
     </div>
-
-    <NSpace vertical class="stats-preview">
-      <NCard size="small" title="Session Stats">
-        <NSpace justify="space-around">
-          <div class="stat-item">
-            <NText depth="3">ao5</NText>
-            <NText>-</NText>
-          </div>
-          <div class="stat-item">
-            <NText depth="3">ao12</NText>
-            <NText>-</NText>
-          </div>
-          <div class="stat-item">
-            <NText depth="3">ao100</NText>
-            <NText>-</NText>
-          </div>
-          <div class="stat-item">
-            <NText depth="3">mean</NText>
-            <NText>-</NText>
-          </div>
-        </NSpace>
-      </NCard>
-    </NSpace>
   </div>
 </template>
 
 <style scoped>
-.timer-view {
+.timer-widget {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 32px;
-  padding: 16px;
-}
-
-.scramble-card {
-  max-width: 800px;
+  justify-content: center;
+  height: 100%;
   width: 100%;
-  text-align: center;
-}
-
-.scramble-text {
-  font-size: 1.25rem;
-  font-family: "JetBrains Mono", monospace;
-  letter-spacing: 0.05em;
 }
 
 .timer-container {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 16px;
-  padding: 64px 0;
+  gap: 12px;
 }
 
 .timer-display {
-  font-size: 8rem;
+  font-size: clamp(3rem, 10vw, 8rem);
   font-family: "JetBrains Mono", "Fira Code", monospace;
   font-weight: 300;
   font-variant-numeric: tabular-nums;
@@ -228,6 +219,7 @@ onUnmounted(() => {
   background-clip: text;
   user-select: none;
   transition: opacity 0.1s ease;
+  line-height: 1;
 }
 
 .timer-display.timer-holding {
@@ -242,17 +234,5 @@ onUnmounted(() => {
 
 .timer-hint {
   font-size: 0.875rem;
-}
-
-.stats-preview {
-  max-width: 600px;
-  width: 100%;
-}
-
-.stat-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
 }
 </style>

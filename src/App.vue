@@ -1,11 +1,13 @@
 <script setup lang="ts">
 import {
+  AddOutline,
+  DocumentsOutline,
   SettingsOutline,
-  StatsChartOutline,
   TimerOutline,
 } from "@vicons/ionicons5";
 import {
   type GlobalThemeOverrides,
+  NButton,
   NConfigProvider,
   NDialogProvider,
   NIcon,
@@ -17,7 +19,7 @@ import {
   NNotificationProvider,
   darkTheme,
 } from "naive-ui";
-import { computed, h } from "vue";
+import { computed, h, ref } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 // Custom theme overrides for Naive UI
@@ -45,28 +47,72 @@ const themeOverrides: GlobalThemeOverrides = {
 const router = useRouter();
 const route = useRoute();
 
-const menuOptions = [
+// Placeholder for pages - will be connected to store later
+const userPages = ref<Array<{ id: string; name: string; icon: string }>>([
+  { id: "example-1", name: "BLD Practice", icon: "EyeOffOutline" },
+  { id: "example-2", name: "OH Training", icon: "HandLeftOutline" },
+]);
+
+const menuOptions = computed(() => [
   {
     label: "Timer",
     key: "timer",
     icon: () => h(NIcon, null, { default: () => h(TimerOutline) }),
   },
   {
-    label: "Stats",
-    key: "stats",
-    icon: () => h(NIcon, null, { default: () => h(StatsChartOutline) }),
+    label: "Pages",
+    key: "pages",
+    icon: () => h(NIcon, null, { default: () => h(DocumentsOutline) }),
+    children: [
+      ...userPages.value.map((page) => ({
+        label: page.name,
+        key: `page-${page.id}`,
+      })),
+      {
+        type: "divider" as const,
+        key: "divider",
+      },
+      {
+        label: () =>
+          h(
+            "span",
+            { style: { display: "flex", alignItems: "center", gap: "6px" } },
+            [
+              h(NIcon, { size: 16 }, { default: () => h(AddOutline) }),
+              "Create Page",
+            ],
+          ),
+        key: "create-page",
+      },
+    ],
   },
-  {
-    label: "Settings",
-    key: "settings",
-    icon: () => h(NIcon, null, { default: () => h(SettingsOutline) }),
-  },
-];
+]);
 
-const activeKey = computed(() => route.name as string);
+const activeKey = computed(() => {
+  const name = route.name as string;
+  // Handle page routes
+  if (name === "page") {
+    return `page-${route.params.pageId}`;
+  }
+  return name;
+});
 
 function handleMenuUpdate(key: string) {
+  if (key === "create-page") {
+    // TODO: Open create page modal
+    console.log("Create page clicked");
+    return;
+  }
+  if (key.startsWith("page-")) {
+    const pageId = key.replace("page-", "");
+    router.push({ name: "page", params: { pageId } });
+    return;
+  }
   router.push({ name: key });
+}
+
+function handleSettingsClick() {
+  router.push({ name: "settings" });
 }
 </script>
 
@@ -78,13 +124,27 @@ function handleMenuUpdate(key: string) {
           <NLayout class="app-layout">
             <NLayoutHeader bordered class="app-header">
               <div class="header-content">
-                <h1 class="app-title">Femtimer</h1>
-                <NMenu
-                  mode="horizontal"
-                  :options="menuOptions"
-                  :value="activeKey"
-                  @update:value="handleMenuUpdate"
-                />
+                <div class="header-left">
+                  <h1 class="app-title">Femtimer</h1>
+                  <NMenu
+                    mode="horizontal"
+                    :options="menuOptions"
+                    :value="activeKey"
+                    @update:value="handleMenuUpdate"
+                  />
+                </div>
+                <div class="header-right">
+                  <NButton
+                    quaternary
+                    circle
+                    :class="{ 'settings-active': route.name === 'settings' }"
+                    @click="handleSettingsClick"
+                  >
+                    <template #icon>
+                      <NIcon size="20"><SettingsOutline /></NIcon>
+                    </template>
+                  </NButton>
+                </div>
               </div>
             </NLayoutHeader>
             <NLayoutContent class="app-content">
@@ -113,6 +173,17 @@ function handleMenuUpdate(key: string) {
   height: 64px;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.header-right {
+  display: flex;
+  align-items: center;
+}
+
 .app-title {
   font-size: 1.5rem;
   font-weight: 600;
@@ -125,5 +196,13 @@ function handleMenuUpdate(key: string) {
 
 .app-content {
   padding: 24px;
+}
+
+.settings-active {
+  color: var(--primary-color);
+}
+
+.settings-active :deep(.n-icon) {
+  color: #f98fed;
 }
 </style>
