@@ -1,0 +1,62 @@
+:root {
+  /* Default Femtimer theme colors - will be overridden by JS */
+  --color-primary: #f98fed;
+  --color-primary-hover: #fea1de;
+  --color-secondary: #c37ef0;
+  --color-accent: #de89fd;
+  --color-background: #18181c;
+  --color-surface: #242428;
+  --color-text: #ffffff;
+  --color-text-muted: #a0a0a8;
+
+  /* Gradient using the full palette */
+  --gradient-primary: linear-gradient(
+    135deg,
+    #ffa9d0 0%,
+    #fea1de 25%,
+    #f98fed 50%,
+    #de89fd 75%,
+    #c37ef0 100%
+  );
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+    Oxygen, Ubuntu, Cantarell, "Fira Sans", "Droid Sans", "Helvetica Neue",
+    sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background-color: var(--color-background);
+  color: var(--color-text);
+}
+
+#app {
+  height: 100%;
+}
+
+/* Timer-specific font for displaying times */
+.timer-display {
+  font-family: "JetBrains Mono", "Fira Code", "SF Mono", Consolas, monospace;
+  font-variant-numeric: tabular-nums;
+}
+
+/* Utility class for gradient text */
+.gradient-text {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}

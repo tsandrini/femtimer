@@ -1,25 +1,23 @@
 # ---------
-# NodeJS/astro
+# NodeJS/Vite
 # ---------
-.astro/
 .cache/
 node_modules/
 dist/
+dist-ssr/
 *.tsbuildinfo
 .DS_Store
 .vercel
 .netlify
 _site/
-scripts/smoke/*-main/
-scripts/memory/project/src/pages/
-benchmark/projects/
-benchmark/results/
-test-results/
 *.log
 package-lock.json
 .turbo/
 .eslintcache
 .pnpm-store
+
+# Vite
+*.local
 
 # do not commit .env files or any files that end with `.env`
 *.env
