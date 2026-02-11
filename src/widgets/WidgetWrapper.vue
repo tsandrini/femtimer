@@ -8,9 +8,7 @@ defineProps<{
   isEditMode?: boolean;
 }>();
 
-defineEmits<{
-  (e: "configure"): void;
-}>();
+defineEmits<(e: "configure") => void>();
 </script>
 
 <template>

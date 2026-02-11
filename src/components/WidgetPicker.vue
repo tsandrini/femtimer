@@ -10,7 +10,7 @@ import {
   TimeOutline,
 } from "@vicons/ionicons5";
 import { NCard, NDrawer, NDrawerContent, NEmpty, NIcon, NText } from "naive-ui";
-import { computed, type Component } from "vue";
+import { type Component, computed } from "vue";
 
 defineProps<{
   show: boolean;

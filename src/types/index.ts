@@ -2,6 +2,7 @@
 export * from "./widgets";
 export * from "./pages";
 export * from "./registry";
+export * from "./scrambles";
 
 export type CubeEvent =
   | "222"

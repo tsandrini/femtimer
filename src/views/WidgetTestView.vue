@@ -2,7 +2,7 @@
 import { getWidgetRegistry } from "@/registry";
 import WidgetWrapper from "@/widgets/WidgetWrapper.vue";
 import { NDivider, NSwitch, NText } from "naive-ui";
-import { computed, ref, type Component } from "vue";
+import { type Component, computed, ref } from "vue";
 
 const registry = getWidgetRegistry();
 const allWidgets = computed(() => registry.getAll());

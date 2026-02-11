@@ -1,10 +1,10 @@
 import {
   addPage,
   deletePage as dbDeletePage,
-  getAllPages,
-  getPage,
   saveFullPage as dbSaveFullPage,
   updatePage as dbUpdatePage,
+  getAllPages,
+  getPage,
 } from "@/services/database";
 import type { Page } from "@/types/pages";
 import { DEFAULT_GRID_CONFIG } from "@/types/pages";
@@ -20,16 +20,20 @@ export const usePagesStore = defineStore("pages", () => {
 
   const currentPage = computed(() =>
     currentPageId.value
-      ? pages.value.find((p) => p.id === currentPageId.value) ?? null
-      : null
+      ? (pages.value.find((p) => p.id === currentPageId.value) ?? null)
+      : null,
   );
 
   const userPages = computed(() =>
-    pages.value.filter((p) => !p.isTemplate).sort((a, b) => a.sortOrder - b.sortOrder)
+    pages.value
+      .filter((p) => !p.isTemplate)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
   );
 
   const templatePages = computed(() =>
-    pages.value.filter((p) => p.isTemplate).sort((a, b) => a.sortOrder - b.sortOrder)
+    pages.value
+      .filter((p) => p.isTemplate)
+      .sort((a, b) => a.sortOrder - b.sortOrder),
   );
 
   async function loadPages() {
@@ -41,7 +45,10 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
-  async function createPage(name: string, icon = "DocumentOutline"): Promise<Page> {
+  async function createPage(
+    name: string,
+    icon = "DocumentOutline",
+  ): Promise<Page> {
     const now = new Date();
     const maxSortOrder = Math.max(0, ...pages.value.map((p) => p.sortOrder));
 
@@ -67,14 +74,22 @@ export const usePagesStore = defineStore("pages", () => {
     await dbUpdatePage(id, updates);
     const index = pages.value.findIndex((p) => p.id === id);
     if (index !== -1) {
-      pages.value[index] = { ...pages.value[index], ...updates, updatedAt: new Date() };
+      pages.value[index] = {
+        ...pages.value[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
     }
   }
 
   function updatePageLocal(id: string, updates: Partial<Page>) {
     const index = pages.value.findIndex((p) => p.id === id);
     if (index !== -1) {
-      pages.value[index] = { ...pages.value[index], ...updates, updatedAt: new Date() };
+      pages.value[index] = {
+        ...pages.value[index],
+        ...updates,
+        updatedAt: new Date(),
+      };
     }
   }
 
@@ -111,12 +126,32 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
-  function updateWidget(pageId: string, widgetId: string, updates: Partial<WidgetInstance>) {
+  function updateWidget(
+    pageId: string,
+    widgetId: string,
+    updates: Partial<WidgetInstance>,
+  ) {
     const page = pages.value.find((p) => p.id === pageId);
     if (page) {
       const widget = page.widgets.find((w) => w.id === widgetId);
       if (widget) {
         Object.assign(widget, updates, { updatedAt: new Date() });
+        page.updatedAt = new Date();
+      }
+    }
+  }
+
+  function updateWidgetConfig(
+    pageId: string,
+    widgetId: string,
+    configUpdates: Record<string, unknown>,
+  ) {
+    const page = pages.value.find((p) => p.id === pageId);
+    if (page) {
+      const widget = page.widgets.find((w) => w.id === widgetId);
+      if (widget) {
+        widget.config = { ...widget.config, ...configUpdates };
+        widget.updatedAt = new Date();
         page.updatedAt = new Date();
       }
     }
@@ -177,6 +212,7 @@ export const usePagesStore = defineStore("pages", () => {
     setEditMode,
     addWidget,
     updateWidget,
+    updateWidgetConfig,
     removeWidget,
     savePage,
     reloadPage,

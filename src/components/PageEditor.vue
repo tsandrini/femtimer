@@ -5,7 +5,13 @@ import { getWidgetRegistry } from "@/registry";
 import { usePagesStore } from "@/stores/pages";
 import type { Page } from "@/types/pages";
 import type { GridPosition, WidgetInstance } from "@/types/widgets";
-import { AddOutline, CheckmarkOutline, CloseOutline, CreateOutline, TrashOutline } from "@vicons/ionicons5";
+import {
+  AddOutline,
+  CheckmarkOutline,
+  CloseOutline,
+  CreateOutline,
+  TrashOutline,
+} from "@vicons/ionicons5";
 import {
   NButton,
   NIcon,
@@ -45,7 +51,7 @@ watch(
   () => props.page.name,
   (newName) => {
     pageName.value = newName;
-  }
+  },
 );
 
 const gridStyle = computed(() => {
@@ -125,8 +131,16 @@ function findAvailablePosition(width: number, height: number): GridPosition {
 
   // Mark all occupied cells
   for (const widget of props.page.widgets) {
-    for (let x = widget.position.x; x < widget.position.x + widget.position.width; x++) {
-      for (let y = widget.position.y; y < widget.position.y + widget.position.height; y++) {
+    for (
+      let x = widget.position.x;
+      x < widget.position.x + widget.position.width;
+      x++
+    ) {
+      for (
+        let y = widget.position.y;
+        y < widget.position.y + widget.position.height;
+        y++
+      ) {
         occupiedCells.add(`${x},${y}`);
       }
     }
@@ -150,7 +164,10 @@ function findAvailablePosition(width: number, height: number): GridPosition {
   }
 
   // Fallback: place at end
-  const maxY = Math.max(0, ...props.page.widgets.map((w) => w.position.y + w.position.height));
+  const maxY = Math.max(
+    0,
+    ...props.page.widgets.map((w) => w.position.y + w.position.height),
+  );
   return { x: 0, y: maxY, width, height };
 }
 
@@ -173,6 +190,13 @@ function handleRemoveWidget(widgetId: string) {
 function handleConfigureWidget(_widgetId: string) {
   // TODO: Implement widget configuration modal
   message.info("Widget configuration coming soon");
+}
+
+function handleUpdateWidgetConfig(
+  widgetId: string,
+  config: Record<string, unknown>,
+) {
+  pagesStore.updateWidgetConfig(props.page.id, widgetId, config);
 }
 
 async function handleSave() {
@@ -325,6 +349,7 @@ function cancelEditingName() {
         @update:position="handlePositionUpdate(widget.id, $event)"
         @remove="handleRemoveWidget(widget.id)"
         @configure="handleConfigureWidget(widget.id)"
+        @updateConfig="handleUpdateWidgetConfig(widget.id, $event)"
       />
 
       <!-- Empty state -->

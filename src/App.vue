@@ -99,7 +99,11 @@ const activeKey = computed(() => {
 async function handleMenuUpdate(key: string) {
   if (key === "create-page") {
     const page = await pagesStore.createPage("New Page");
-    router.push({ name: "page", params: { pageId: page.id }, query: { edit: "true" } });
+    router.push({
+      name: "page",
+      params: { pageId: page.id },
+      query: { edit: "true" },
+    });
     return;
   }
   if (key.startsWith("page-")) {

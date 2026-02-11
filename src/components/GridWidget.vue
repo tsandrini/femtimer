@@ -3,7 +3,7 @@ import { getWidgetRegistry } from "@/registry";
 import type { GridPosition } from "@/types/widgets";
 import { CloseOutline, MoveOutline, SettingsOutline } from "@vicons/ionicons5";
 import { NButton, NIcon } from "naive-ui";
-import { computed, ref, type Component } from "vue";
+import { type Component, computed, ref } from "vue";
 
 const props = defineProps<{
   widgetId: string;
@@ -20,7 +20,12 @@ const emit = defineEmits<{
   (e: "update:position", position: GridPosition): void;
   (e: "remove"): void;
   (e: "configure"): void;
+  (e: "updateConfig", config: Record<string, unknown>): void;
 }>();
+
+function handleUpdateConfig(config: Record<string, unknown>) {
+  emit("updateConfig", config);
+}
 
 const registry = getWidgetRegistry();
 const widgetRegistration = computed(() => registry.get(props.typeId));
@@ -56,13 +61,21 @@ function onDrag(e: PointerEvent) {
   const deltaY = e.clientY - dragStartPos.value.y;
 
   // Calculate grid cell size (approximate - will be refined by parent)
-  const cellWidth = (window.innerWidth - 48 - props.gap * (props.gridColumns - 1)) / props.gridColumns;
+  const cellWidth =
+    (window.innerWidth - 48 - props.gap * (props.gridColumns - 1)) /
+    props.gridColumns;
   const cellHeight = props.rowHeight + props.gap;
 
   const colDelta = Math.round(deltaX / cellWidth);
   const rowDelta = Math.round(deltaY / cellHeight);
 
-  const newX = Math.max(0, Math.min(props.gridColumns - props.position.width, originalPosition.value.x + colDelta));
+  const newX = Math.max(
+    0,
+    Math.min(
+      props.gridColumns - props.position.width,
+      originalPosition.value.x + colDelta,
+    ),
+  );
   const newY = Math.max(0, originalPosition.value.y + rowDelta);
 
   if (newX !== props.position.x || newY !== props.position.y) {
@@ -96,7 +109,9 @@ function onResize(e: PointerEvent) {
   const deltaX = e.clientX - dragStartPos.value.x;
   const deltaY = e.clientY - dragStartPos.value.y;
 
-  const cellWidth = (window.innerWidth - 48 - props.gap * (props.gridColumns - 1)) / props.gridColumns;
+  const cellWidth =
+    (window.innerWidth - 48 - props.gap * (props.gridColumns - 1)) /
+    props.gridColumns;
   const cellHeight = props.rowHeight + props.gap;
 
   const widthDelta = Math.round(deltaX / cellWidth);
@@ -108,10 +123,23 @@ function onResize(e: PointerEvent) {
   const maxWidth = metadata?.maxSize?.width ?? props.gridColumns;
   const maxHeight = metadata?.maxSize?.height ?? 20;
 
-  const newWidth = Math.max(minWidth, Math.min(maxWidth, props.gridColumns - props.position.x, originalPosition.value.width + widthDelta));
-  const newHeight = Math.max(minHeight, Math.min(maxHeight, originalPosition.value.height + heightDelta));
+  const newWidth = Math.max(
+    minWidth,
+    Math.min(
+      maxWidth,
+      props.gridColumns - props.position.x,
+      originalPosition.value.width + widthDelta,
+    ),
+  );
+  const newHeight = Math.max(
+    minHeight,
+    Math.min(maxHeight, originalPosition.value.height + heightDelta),
+  );
 
-  if (newWidth !== props.position.width || newHeight !== props.position.height) {
+  if (
+    newWidth !== props.position.width ||
+    newHeight !== props.position.height
+  ) {
     emit("update:position", {
       ...props.position,
       width: newWidth,
@@ -168,6 +196,7 @@ function stopResize() {
         :instance-id="widgetId"
         :config="config"
         :is-edit-mode="isEditMode"
+        @updateConfig="handleUpdateConfig"
       />
     </div>
 
