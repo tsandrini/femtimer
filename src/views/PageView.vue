@@ -38,6 +38,16 @@ async function loadPage() {
     }
   }
 }
+
+function handlePageDeleted() {
+  // Navigate to home or first available page
+  const firstPage = pagesStore.userPages[0] || pagesStore.templatePages[0];
+  if (firstPage) {
+    router.push({ name: "page", params: { pageId: firstPage.id } });
+  } else {
+    router.push({ name: "home" });
+  }
+}
 </script>
 
 <template>
@@ -53,6 +63,7 @@ async function loadPage() {
         :page="page"
         :is-edit-mode="isEditMode"
         @update:is-edit-mode="isEditMode = $event"
+        @delete="handlePageDeleted"
       />
     </template>
 

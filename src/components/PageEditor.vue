@@ -5,7 +5,7 @@ import { getWidgetRegistry } from "@/registry";
 import { usePagesStore } from "@/stores/pages";
 import type { Page } from "@/types/pages";
 import type { GridPosition, WidgetInstance } from "@/types/widgets";
-import { AddOutline, CheckmarkOutline, CloseOutline, CreateOutline } from "@vicons/ionicons5";
+import { AddOutline, CheckmarkOutline, CloseOutline, CreateOutline, TrashOutline } from "@vicons/ionicons5";
 import {
   NButton,
   NIcon,
@@ -14,7 +14,7 @@ import {
   useDialog,
   useMessage,
 } from "naive-ui";
-import { computed, ref, watch } from "vue";
+import { computed, onUnmounted, ref, watch } from "vue";
 
 const props = defineProps<{
   page: Page;
@@ -23,6 +23,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "update:isEditMode", value: boolean): void;
+  (e: "delete"): void;
 }>();
 
 const pagesStore = usePagesStore();
@@ -34,6 +35,12 @@ const showWidgetPicker = ref(false);
 const editingName = ref(false);
 const pageName = ref(props.page.name);
 
+// Grid resize state
+const gridRef = ref<HTMLElement | null>(null);
+const isResizing = ref(false);
+const resizeStartY = ref(0);
+const resizeStartRows = ref(0);
+
 watch(
   () => props.page.name,
   (newName) => {
@@ -41,14 +48,55 @@ watch(
   }
 );
 
-const gridStyle = computed(() => ({
-  display: "grid",
-  gridTemplateColumns: `repeat(${props.page.gridConfig.columns}, 1fr)`,
-  gridAutoRows: `${props.page.gridConfig.rowHeight}px`,
-  gap: `${props.page.gridConfig.gap}px`,
-  padding: `${props.page.gridConfig.padding}px`,
-  minHeight: "400px",
-}));
+const gridStyle = computed(() => {
+  const { rowHeight, gap, padding, minRows } = props.page.gridConfig;
+  // Calculate min-height: minRows * rowHeight + (minRows - 1) * gap + 2 * padding
+  const minHeight = minRows * rowHeight + (minRows - 1) * gap + 2 * padding;
+  return {
+    display: "grid",
+    gridTemplateColumns: `repeat(${props.page.gridConfig.columns}, 1fr)`,
+    gridAutoRows: `${rowHeight}px`,
+    gap: `${gap}px`,
+    padding: `${padding}px`,
+    minHeight: `${minHeight}px`,
+  };
+});
+
+// Grid resize handlers
+function handleResizeStart(event: MouseEvent) {
+  isResizing.value = true;
+  resizeStartY.value = event.clientY;
+  resizeStartRows.value = props.page.gridConfig.minRows;
+  document.addEventListener("mousemove", handleResizeMove);
+  document.addEventListener("mouseup", handleResizeEnd);
+}
+
+function handleResizeMove(event: MouseEvent) {
+  if (!isResizing.value) return;
+
+  const { rowHeight, gap } = props.page.gridConfig;
+  const deltaY = event.clientY - resizeStartY.value;
+  // Calculate how many rows the delta represents
+  const deltaRows = Math.round(deltaY / (rowHeight + gap));
+  const newMinRows = Math.max(2, resizeStartRows.value + deltaRows);
+
+  if (newMinRows !== props.page.gridConfig.minRows) {
+    pagesStore.updatePage(props.page.id, {
+      gridConfig: { ...props.page.gridConfig, minRows: newMinRows },
+    });
+  }
+}
+
+function handleResizeEnd() {
+  isResizing.value = false;
+  document.removeEventListener("mousemove", handleResizeMove);
+  document.removeEventListener("mouseup", handleResizeEnd);
+}
+
+onUnmounted(() => {
+  document.removeEventListener("mousemove", handleResizeMove);
+  document.removeEventListener("mouseup", handleResizeEnd);
+});
 
 function handleWidgetSelect(typeId: string) {
   const registration = registry.get(typeId);
@@ -146,6 +194,20 @@ function handleCancel() {
   });
 }
 
+function handleDeletePage() {
+  dialog.error({
+    title: "Delete Page",
+    content: `Are you sure you want to delete "${props.page.name}"? This action cannot be undone.`,
+    positiveText: "Delete",
+    negativeText: "Cancel",
+    onPositiveClick: async () => {
+      await pagesStore.deletePage(props.page.id);
+      emit("delete");
+      message.success("Page deleted");
+    },
+  });
+}
+
 function startEditingName() {
   editingName.value = true;
 }
@@ -222,22 +284,33 @@ function cancelEditingName() {
           </NSpace>
         </template>
         <template v-else>
-          <NButton
-            v-if="page.isEditable"
-            size="small"
-            @click="$emit('update:isEditMode', true)"
-          >
-            <template #icon>
-              <NIcon><CreateOutline /></NIcon>
-            </template>
-            Edit
-          </NButton>
+          <NSpace v-if="page.isEditable">
+            <NButton
+              size="small"
+              @click="$emit('update:isEditMode', true)"
+            >
+              <template #icon>
+                <NIcon><CreateOutline /></NIcon>
+              </template>
+              Edit
+            </NButton>
+            <NButton
+              size="small"
+              type="error"
+              @click="handleDeletePage"
+            >
+              <template #icon>
+                <NIcon><TrashOutline /></NIcon>
+              </template>
+              Delete
+            </NButton>
+          </NSpace>
         </template>
       </div>
     </div>
 
     <!-- Grid -->
-    <div class="page-grid" :class="{ 'edit-mode': isEditMode }" :style="gridStyle">
+    <div ref="gridRef" class="page-grid" :class="{ 'edit-mode': isEditMode }" :style="gridStyle">
       <GridWidget
         v-for="widget in page.widgets"
         :key="widget.id"
@@ -262,6 +335,16 @@ function cancelEditingName() {
       >
         <NIcon size="48" class="empty-icon"><AddOutline /></NIcon>
         <span class="empty-text">Click to add your first widget</span>
+      </div>
+
+      <!-- Resize handle -->
+      <div
+        v-if="isEditMode"
+        class="grid-resize-handle"
+        :class="{ resizing: isResizing }"
+        @mousedown.prevent="handleResizeStart"
+      >
+        <div class="resize-handle-icon" />
       </div>
     </div>
 
@@ -350,5 +433,39 @@ function cancelEditingName() {
 .empty-text {
   color: var(--color-text-muted);
   font-size: 0.875rem;
+}
+
+.grid-resize-handle {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 24px;
+  height: 24px;
+  cursor: nwse-resize;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0 0 12px 0;
+  transition: background-color 0.2s;
+}
+
+.grid-resize-handle:hover,
+.grid-resize-handle.resizing {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.resize-handle-icon {
+  width: 10px;
+  height: 10px;
+  border-right: 2px solid var(--color-text-muted);
+  border-bottom: 2px solid var(--color-text-muted);
+  opacity: 0.5;
+  transition: opacity 0.2s;
+}
+
+.grid-resize-handle:hover .resize-handle-icon,
+.grid-resize-handle.resizing .resize-handle-icon {
+  opacity: 1;
+  border-color: var(--color-primary);
 }
 </style>

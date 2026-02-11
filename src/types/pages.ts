@@ -12,6 +12,7 @@ export interface GridConfig {
   rowHeight: number; // Height of each row in pixels (default: 80)
   gap: number; // Gap between cells in pixels (default: 16)
   padding: number; // Padding around the grid (default: 16)
+  minRows: number; // Minimum visible rows in edit mode (default: 6)
 }
 
 /**
@@ -22,6 +23,7 @@ export const DEFAULT_GRID_CONFIG: GridConfig = {
   rowHeight: 80,
   gap: 16,
   padding: 16,
+  minRows: 6,
 };
 
 /**
