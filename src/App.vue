@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { usePagesStore } from "@/stores/pages";
 import {
   AddOutline,
   DocumentsOutline,
@@ -19,7 +20,7 @@ import {
   NNotificationProvider,
   darkTheme,
 } from "naive-ui";
-import { computed, h, ref } from "vue";
+import { computed, h, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 
 // Custom theme overrides for Naive UI
@@ -46,12 +47,11 @@ const themeOverrides: GlobalThemeOverrides = {
 
 const router = useRouter();
 const route = useRoute();
+const pagesStore = usePagesStore();
 
-// Placeholder for pages - will be connected to store later
-const userPages = ref<Array<{ id: string; name: string; icon: string }>>([
-  { id: "example-1", name: "BLD Practice", icon: "EyeOffOutline" },
-  { id: "example-2", name: "OH Training", icon: "HandLeftOutline" },
-]);
+onMounted(async () => {
+  await pagesStore.loadPages();
+});
 
 const menuOptions = computed(() => [
   {
@@ -64,14 +64,13 @@ const menuOptions = computed(() => [
     key: "pages",
     icon: () => h(NIcon, null, { default: () => h(DocumentsOutline) }),
     children: [
-      ...userPages.value.map((page) => ({
+      ...pagesStore.userPages.map((page) => ({
         label: page.name,
         key: `page-${page.id}`,
       })),
-      {
-        type: "divider" as const,
-        key: "divider",
-      },
+      ...(pagesStore.userPages.length > 0
+        ? [{ type: "divider" as const, key: "divider" }]
+        : []),
       {
         label: () =>
           h(
@@ -97,10 +96,10 @@ const activeKey = computed(() => {
   return name;
 });
 
-function handleMenuUpdate(key: string) {
+async function handleMenuUpdate(key: string) {
   if (key === "create-page") {
-    // TODO: Open create page modal
-    console.log("Create page clicked");
+    const page = await pagesStore.createPage("New Page");
+    router.push({ name: "page", params: { pageId: page.id }, query: { edit: "true" } });
     return;
   }
   if (key.startsWith("page-")) {

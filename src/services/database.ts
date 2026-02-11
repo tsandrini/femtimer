@@ -163,6 +163,10 @@ export async function updatePage(
   await db.pages.update(id, { ...updates, updatedAt: new Date() });
 }
 
+export async function saveFullPage(page: Page): Promise<void> {
+  await db.pages.put({ ...page, updatedAt: new Date() });
+}
+
 export async function deletePage(id: string): Promise<void> {
   await db.pages.delete(id);
 }
