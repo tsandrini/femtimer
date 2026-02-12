@@ -15,6 +15,9 @@ export const solveHistoryWidgetRegistration: WidgetRegistration = {
       maxItems: 50,
       showScramble: true,
       showDate: false,
+      showComment: true,
+      showPageName: false,
+      filterByCurrentPage: false,
     },
     defaultSize: { width: 4, height: 4 },
     minSize: { width: 3, height: 2 },
@@ -30,10 +33,28 @@ export const solveHistoryWidgetRegistration: WidgetRegistration = {
           step: 5,
         },
         {
+          key: "filterByCurrentPage",
+          label: "Filter by current page",
+          type: "boolean",
+          default: false,
+        },
+        {
           key: "showScramble",
           label: "Show scramble",
           type: "boolean",
           default: true,
+        },
+        {
+          key: "showComment",
+          label: "Show comment",
+          type: "boolean",
+          default: true,
+        },
+        {
+          key: "showPageName",
+          label: "Show page name",
+          type: "boolean",
+          default: false,
         },
         {
           key: "showDate",

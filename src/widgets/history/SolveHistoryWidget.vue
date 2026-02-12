@@ -1,12 +1,18 @@
 <script setup lang="ts">
+import { usePageEvent } from "@/composables/usePageEvents";
+import { type Solve, db } from "@/services/database";
+import { usePagesStore } from "@/stores/pages";
 import type { BaseWidgetConfig } from "@/types/widgets";
-import { NDataTable, NEmpty, NText } from "naive-ui";
-import { computed, h } from "vue";
+import { NDataTable, NEmpty, NInput, NText } from "naive-ui";
+import { computed, h, onMounted, ref, watch } from "vue";
 
 export interface SolveHistoryWidgetConfig extends BaseWidgetConfig {
   maxItems: number;
   showScramble: boolean;
   showDate: boolean;
+  showComment: boolean;
+  showPageName: boolean;
+  filterByCurrentPage: boolean;
 }
 
 const props = defineProps<{
@@ -15,16 +21,73 @@ const props = defineProps<{
   isEditMode: boolean;
 }>();
 
-// Placeholder data - will be connected to real data later
-const solves = computed(
-  () =>
-    [] as Array<{
-      id: number;
-      time: number;
-      scramble: string;
-      timestamp: Date;
-      penalty: "none" | "+2" | "dnf";
-    }>,
+const pagesStore = usePagesStore();
+const currentPageId = computed(() => pagesStore.currentPageId);
+
+// Store solves in a ref
+const allSolves = ref<Solve[]>([]);
+
+// Load solves from database (reverse chronological - most recent first)
+async function loadSolves() {
+  allSolves.value = await db.solves.orderBy("timestamp").reverse().toArray();
+}
+
+// Filter solves based on config
+const solves = computed(() => {
+  let filtered = allSolves.value;
+
+  // Filter by current page if enabled
+  if (props.config.filterByCurrentPage && currentPageId.value) {
+    filtered = filtered.filter((s) => s.pageId === currentPageId.value);
+  }
+
+  return filtered;
+});
+
+// Track which comment is being edited
+const editingCommentId = ref<number | null>(null);
+const editingCommentValue = ref("");
+
+function startEditComment(solve: Solve) {
+  editingCommentId.value = solve.id;
+  editingCommentValue.value = solve.comment || "";
+}
+
+async function saveComment(solveId: number) {
+  await db.solves.update(solveId, { comment: editingCommentValue.value });
+  editingCommentId.value = null;
+  editingCommentValue.value = "";
+  await loadSolves(); // Refresh the list
+}
+
+function cancelEditComment() {
+  editingCommentId.value = null;
+  editingCommentValue.value = "";
+}
+
+// Get page name by ID
+function getPageName(pageId?: string): string {
+  if (!pageId) return "—";
+  const page = pagesStore.pages.find((p) => p.id === pageId);
+  return page?.name || "Unknown";
+}
+
+// Load solves on mount
+onMounted(() => {
+  loadSolves();
+});
+
+// Listen for solveSaved event and reload (ensures DB write is complete)
+usePageEvent("solveSaved", () => {
+  loadSolves();
+});
+
+// Watch for filter config changes
+watch(
+  () => props.config.filterByCurrentPage,
+  () => {
+    // Solves will be re-filtered automatically by the computed property
+  },
 );
 
 // Format time in seconds
@@ -48,7 +111,7 @@ function formatDate(date: Date): string {
   return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
-type SolveRow = (typeof solves.value)[0];
+type SolveRow = Solve;
 
 // Table columns - using any[] to allow flexible column definitions
 const columns = computed(() => {
@@ -56,10 +119,9 @@ const columns = computed(() => {
   const cols: any[] = [
     {
       title: "#",
-      key: "index",
+      key: "id",
       width: 50,
-      render: (_row: SolveRow, index: number) =>
-        h(NText, { depth: 3 }, () => index + 1),
+      render: (row: SolveRow) => h(NText, { depth: 3 }, () => row.id),
     },
     {
       title: "Time",
@@ -85,6 +147,53 @@ const columns = computed(() => {
       ellipsis: { tooltip: true },
       render: (row: SolveRow) =>
         h(NText, { depth: 3, class: "scramble-cell" }, () => row.scramble),
+    });
+  }
+
+  if (props.config.showComment) {
+    cols.push({
+      title: "Comment",
+      key: "comment",
+      width: 200,
+      render: (row: SolveRow) => {
+        if (editingCommentId.value === row.id) {
+          return h(NInput, {
+            value: editingCommentValue.value,
+            size: "small",
+            placeholder: "Add comment...",
+            onUpdateValue: (val: string) => {
+              editingCommentValue.value = val;
+            },
+            onBlur: () => saveComment(row.id),
+            onKeyup: (e: KeyboardEvent) => {
+              if (e.key === "Enter") saveComment(row.id);
+              if (e.key === "Escape") cancelEditComment();
+            },
+          });
+        }
+        return h(
+          "div",
+          {
+            class: "comment-cell",
+            onClick: () => !props.isEditMode && startEditComment(row),
+          },
+          h(
+            NText,
+            { depth: row.comment ? 1 : 3 },
+            () => row.comment || "Add comment...",
+          ),
+        );
+      },
+    });
+  }
+
+  if (props.config.showPageName) {
+    cols.push({
+      title: "Page",
+      key: "pageId",
+      width: 120,
+      render: (row: SolveRow) =>
+        h(NText, { depth: 3 }, () => getPageName(row.pageId)),
     });
   }
 
@@ -146,5 +255,16 @@ const displaySolves = computed(() => {
 .scramble-cell {
   font-family: "JetBrains Mono", monospace;
   font-size: 0.75rem;
+}
+
+.comment-cell {
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  transition: background-color 0.2s;
+}
+
+.comment-cell:hover {
+  background-color: rgba(255, 255, 255, 0.05);
 }
 </style>

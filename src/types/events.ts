@@ -10,10 +10,12 @@ export interface PageEvents {
   // Timer events
   timerReady: undefined;
   timerStarted: undefined;
-  solveFinished: { time: number };
+  solveFinished: { time: number; scramble: string; eventCode: string };
+  solveSaved: { solveId: number }; // Emitted after solve is successfully saved to database
 
   // Scramble events
   scrambleGenerated: { scramble: string; eventCode: string };
+  requestCurrentScramble: undefined; // Request scramble widget to re-emit current scramble
 }
 
 export type PageEventName = keyof PageEvents;

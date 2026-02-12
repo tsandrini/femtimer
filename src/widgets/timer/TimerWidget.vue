@@ -36,18 +36,23 @@ interface TimerWidgetState extends Record<string, unknown> {
 }
 
 // Load persisted state or use defaults
-const persistedState =
-  widgetStateStore.getState<TimerWidgetState>(props.instanceId);
+const persistedState = widgetStateStore.getState<TimerWidgetState>(
+  props.instanceId,
+);
 
 const state = ref<TimerState>(persistedState?.state ?? "idle");
 const currentTimeMs = ref(persistedState?.currentTimeMs ?? 0);
 const lastSolveTime = ref<number | null>(persistedState?.lastSolveTime ?? null);
 
+// Track the current scramble and event code for the solve (NOT persisted)
+const currentScramble = ref<string>("");
+const currentEventCode = ref<string>("333");
+
 let holdTimeout: ReturnType<typeof setTimeout> | null = null;
 let timerStartTime = persistedState?.timerStartTime ?? 0;
 let animationFrameId: number | null = null;
 
-// Save state to store whenever it changes
+// Save state to store whenever it changes (excluding scramble - not persisted)
 function saveState() {
   widgetStateStore.setState<TimerWidgetState>(props.instanceId, {
     state: state.value,
@@ -57,7 +62,7 @@ function saveState() {
   });
 }
 
-// Watch for state changes and persist
+// Watch for state changes and persist (excluding scramble)
 watch([state, currentTimeMs, lastSolveTime], saveState, { deep: true });
 
 // Format time for display
@@ -139,11 +144,15 @@ function stopTimer() {
   state.value = "stopped";
 
   // Emit solve event
-  emit("solve", currentTimeMs.value, ""); // scramble will be provided by parent
+  emit("solve", currentTimeMs.value, currentScramble.value);
 
-  // Emit solveFinished event via page event bus if autoNextScramble is enabled
+  // Emit solveFinished event via page event bus with scramble info
   if (props.config.autoNextScramble) {
-    pageEvents?.emit("solveFinished", { time: currentTimeMs.value });
+    pageEvents?.emit("solveFinished", {
+      time: currentTimeMs.value,
+      scramble: currentScramble.value,
+      eventCode: currentEventCode.value,
+    });
   }
 }
 
@@ -198,6 +207,12 @@ function handleKeyUp(e: KeyboardEvent) {
   }
 }
 
+// Listen for scramble events to track the current scramble
+pageEvents?.on("scrambleGenerated", ({ scramble, eventCode }) => {
+  currentScramble.value = scramble;
+  currentEventCode.value = eventCode;
+});
+
 // Watch for edit mode changes - reset timer if entering edit mode
 watch(
   () => props.isEditMode,
@@ -220,6 +235,9 @@ onMounted(() => {
     }
     animationFrameId = requestAnimationFrame(updateTimer);
   }
+
+  // Request current scramble in case we missed the scrambleGenerated event during mount
+  pageEvents?.emit("requestCurrentScramble");
 });
 
 onUnmounted(() => {

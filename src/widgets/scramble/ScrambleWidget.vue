@@ -47,12 +47,27 @@ interface ScrambleWidgetState extends Record<string, unknown> {
 }
 
 // Load persisted state or use defaults
-const persistedState =
-  widgetStateStore.getState<ScrambleWidgetState>(props.instanceId);
+const persistedState = widgetStateStore.getState<ScrambleWidgetState>(
+  props.instanceId,
+);
 
 // Listen for solveFinished event to generate next scramble
 usePageEvent("solveFinished", () => {
   generateScramble();
+});
+
+// Listen for requests to re-emit current scramble (for late-mounting widgets)
+usePageEvent("requestCurrentScramble", () => {
+  if (scramble.value && scramble.value !== "Generating...") {
+    const eventCode = getEventCode(
+      currentCategoryId.value,
+      currentScrambleTypeId.value,
+    );
+    pageEvents?.emit("scrambleGenerated", {
+      scramble: scramble.value,
+      eventCode,
+    });
+  }
 });
 
 const scramble = ref(persistedState?.scramble ?? "Generating...");
@@ -167,8 +182,18 @@ watch(
 );
 
 onMounted(() => {
-  // Only generate a new scramble if we don't have a persisted one
-  if (!persistedState?.scramble || scramble.value === "Generating...") {
+  // If we have a persisted scramble, emit it immediately
+  if (persistedState?.scramble && scramble.value !== "Generating...") {
+    const eventCode = getEventCode(
+      currentCategoryId.value,
+      currentScrambleTypeId.value,
+    );
+    pageEvents?.emit("scrambleGenerated", {
+      scramble: scramble.value,
+      eventCode,
+    });
+  } else {
+    // Generate a new scramble if we don't have a persisted one
     generateScramble();
   }
 });

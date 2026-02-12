@@ -3,6 +3,7 @@ import GridWidget from "@/components/GridWidget.vue";
 import WidgetPicker from "@/components/WidgetPicker.vue";
 import { providePageEvents } from "@/composables/usePageEvents";
 import { getWidgetRegistry } from "@/registry";
+import { addSolve, getOrCreateDefaultSession } from "@/services/database";
 import { usePagesStore } from "@/stores/pages";
 import type { Page } from "@/types/pages";
 import type { GridPosition, WidgetInstance } from "@/types/widgets";
@@ -39,7 +40,34 @@ const dialog = useDialog();
 const registry = getWidgetRegistry();
 
 // Provide page-level event bus for widget communication
-providePageEvents();
+const pageEvents = providePageEvents();
+
+// Listen to solve finished events and save to database
+pageEvents.on("solveFinished", async ({ time, scramble, eventCode }) => {
+  try {
+    // Get or create default session for this event
+    const session = await getOrCreateDefaultSession(eventCode);
+
+    // Save solve to database
+    const solveId = await addSolve({
+      time,
+      scramble,
+      scrambleType: eventCode,
+      event: eventCode, // For backwards compatibility
+      sessionId: session.id,
+      pageId: props.page.id,
+      tags: [],
+      timestamp: new Date(),
+      penalty: "none",
+      comment: "",
+    });
+
+    // Emit solveSaved event after successful save
+    pageEvents.emit("solveSaved", { solveId });
+  } catch (error) {
+    console.error("Failed to save solve:", error);
+  }
+});
 
 const showWidgetPicker = ref(false);
 const editingName = ref(false);
