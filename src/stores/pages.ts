@@ -1,11 +1,16 @@
 import {
+  addLink as dbAddLink,
   addPage,
+  deleteLink as dbDeleteLink,
   deletePage as dbDeletePage,
+  getAllPages,
+  getGlobalLinks,
+  getPage,
   saveFullPage as dbSaveFullPage,
   updatePage as dbUpdatePage,
-  getAllPages,
-  getPage,
 } from "@/services/database";
+import type { Link } from "@/types/links";
+import { createLink } from "@/types/links";
 import type { Page } from "@/types/pages";
 import { DEFAULT_GRID_CONFIG } from "@/types/pages";
 import type { WidgetInstance } from "@/types/widgets";
@@ -17,6 +22,7 @@ export const usePagesStore = defineStore("pages", () => {
   const currentPageId = ref<string | null>(null);
   const isEditMode = ref(false);
   const isLoading = ref(false);
+  const globalLinks = ref<Link[]>([]);
 
   const currentPage = computed(() =>
     currentPageId.value
@@ -40,6 +46,7 @@ export const usePagesStore = defineStore("pages", () => {
     isLoading.value = true;
     try {
       pages.value = await getAllPages();
+      globalLinks.value = await getGlobalLinks();
     } finally {
       isLoading.value = false;
     }
@@ -52,6 +59,9 @@ export const usePagesStore = defineStore("pages", () => {
     const now = new Date();
     const maxSortOrder = Math.max(0, ...pages.value.map((p) => p.sortOrder));
 
+    // Create default page link
+    const defaultPageLink = createLink("Default", "page");
+
     const newPage: Page = {
       id: crypto.randomUUID(),
       name,
@@ -61,6 +71,8 @@ export const usePagesStore = defineStore("pages", () => {
       sortOrder: maxSortOrder + 1,
       gridConfig: { ...DEFAULT_GRID_CONFIG },
       widgets: [],
+      defaultLinkId: defaultPageLink.id,
+      pageLinks: [defaultPageLink],
       createdAt: now,
       updatedAt: now,
     };
@@ -121,6 +133,10 @@ export const usePagesStore = defineStore("pages", () => {
   function addWidget(pageId: string, widget: WidgetInstance) {
     const page = pages.value.find((p) => p.id === pageId);
     if (page) {
+      // Set default link if not specified
+      if (!widget.config.linkIds || widget.config.linkIds.length === 0) {
+        widget.config.linkIds = [page.defaultLinkId];
+      }
       page.widgets.push(widget);
       page.updatedAt = new Date();
     }
@@ -197,6 +213,44 @@ export const usePagesStore = defineStore("pages", () => {
     }
   }
 
+  async function createGlobalLink(name: string): Promise<Link> {
+    const link = createLink(name, "global");
+    await dbAddLink(link);
+    globalLinks.value.push(link);
+    return link;
+  }
+
+  async function createPageLink(pageId: string, name: string): Promise<Link> {
+    const link = createLink(name, "page");
+    const page = pages.value.find((p) => p.id === pageId);
+    if (page) {
+      page.pageLinks.push(link);
+      page.updatedAt = new Date();
+      await savePage(pageId);
+    }
+    return link;
+  }
+
+  async function deleteGlobalLink(linkId: string) {
+    await dbDeleteLink(linkId);
+    const index = globalLinks.value.findIndex((l) => l.id === linkId);
+    if (index !== -1) {
+      globalLinks.value.splice(index, 1);
+    }
+  }
+
+  async function deletePageLink(pageId: string, linkId: string) {
+    const page = pages.value.find((p) => p.id === pageId);
+    if (page) {
+      const index = page.pageLinks.findIndex((l) => l.id === linkId);
+      if (index !== -1) {
+        page.pageLinks.splice(index, 1);
+        page.updatedAt = new Date();
+        await savePage(pageId);
+      }
+    }
+  }
+
   return {
     pages,
     currentPageId,
@@ -205,6 +259,7 @@ export const usePagesStore = defineStore("pages", () => {
     templatePages,
     isEditMode,
     isLoading,
+    globalLinks,
     loadPages,
     createPage,
     updatePage,
@@ -218,5 +273,9 @@ export const usePagesStore = defineStore("pages", () => {
     removeWidget,
     savePage,
     reloadPage,
+    createGlobalLink,
+    createPageLink,
+    deleteGlobalLink,
+    deletePageLink,
   };
 });

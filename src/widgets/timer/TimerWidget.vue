@@ -23,6 +23,9 @@ const emit =
 // Page-level event bus for cross-widget communication
 const pageEvents = usePageEvents();
 
+// Link IDs for scoped communication
+const linkIds = computed(() => props.config.linkIds || []);
+
 // Widget state persistence
 const widgetStateStore = useWidgetStateStore();
 
@@ -123,8 +126,10 @@ function startTimer() {
   state.value = "running";
   saveState(); // Persist timerStartTime
 
-  // Emit timerStarted event
-  pageEvents?.emit("timerStarted");
+  // Emit timerStarted event to all links
+  for (const linkId of linkIds.value) {
+    pageEvents?.emit("timerStarted", undefined, { linkId });
+  }
 
   function updateTimer() {
     currentTimeMs.value = performance.now() - timerStartTime;
@@ -148,11 +153,17 @@ function stopTimer() {
 
   // Emit solveFinished event via page event bus with scramble info
   if (props.config.autoNextScramble) {
-    pageEvents?.emit("solveFinished", {
-      time: currentTimeMs.value,
-      scramble: currentScramble.value,
-      eventCode: currentEventCode.value,
-    });
+    for (const linkId of linkIds.value) {
+      pageEvents?.emit(
+        "solveFinished",
+        {
+          time: currentTimeMs.value,
+          scramble: currentScramble.value,
+          eventCode: currentEventCode.value,
+        },
+        { linkId },
+      );
+    }
   }
 }
 
@@ -183,7 +194,9 @@ function handleKeyDown(e: KeyboardEvent) {
 
     holdTimeout = setTimeout(() => {
       state.value = "ready";
-      pageEvents?.emit("timerReady");
+      for (const linkId of linkIds.value) {
+        pageEvents?.emit("timerReady", undefined, { linkId });
+      }
     }, props.config.holdTime);
   }
 }
@@ -207,11 +220,14 @@ function handleKeyUp(e: KeyboardEvent) {
   }
 }
 
-// Listen for scramble events to track the current scramble
-pageEvents?.on("scrambleGenerated", ({ scramble, eventCode }) => {
+// Listen for scramble events to track the current scramble (for all links)
+const scrambleHandler = ({ scramble, eventCode }: { scramble: string; eventCode: string }) => {
   currentScramble.value = scramble;
   currentEventCode.value = eventCode;
-});
+};
+for (const linkId of linkIds.value) {
+  pageEvents?.on("scrambleGenerated", scrambleHandler, { linkId });
+}
 
 // Watch for edit mode changes - reset timer if entering edit mode
 watch(
@@ -237,7 +253,9 @@ onMounted(() => {
   }
 
   // Request current scramble in case we missed the scrambleGenerated event during mount
-  pageEvents?.emit("requestCurrentScramble");
+  for (const linkId of linkIds.value) {
+    pageEvents?.emit("requestCurrentScramble", undefined, { linkId });
+  }
 });
 
 onUnmounted(() => {

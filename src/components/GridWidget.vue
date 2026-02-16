@@ -1,7 +1,12 @@
 <script setup lang="ts">
 import { getWidgetRegistry } from "@/registry";
 import type { GridPosition } from "@/types/widgets";
-import { CloseOutline, MoveOutline, SettingsOutline } from "@vicons/ionicons5";
+import {
+  CloseOutline,
+  LinkOutline,
+  MoveOutline,
+  SettingsOutline,
+} from "@vicons/ionicons5";
 import { NButton, NIcon } from "naive-ui";
 import { type Component, computed, ref } from "vue";
 
@@ -20,6 +25,7 @@ const emit = defineEmits<{
   (e: "update:position", position: GridPosition): void;
   (e: "remove"): void;
   (e: "configure"): void;
+  (e: "selectLink"): void;
   (e: "updateConfig", config: Record<string, unknown>): void;
 }>();
 
@@ -173,6 +179,11 @@ function stopResize() {
         >
           <template #icon>
             <NIcon size="14"><MoveOutline /></NIcon>
+          </template>
+        </NButton>
+        <NButton quaternary circle size="tiny" @click="$emit('selectLink')">
+          <template #icon>
+            <NIcon size="14"><LinkOutline /></NIcon>
           </template>
         </NButton>
         <NButton quaternary circle size="tiny" @click="$emit('configure')">

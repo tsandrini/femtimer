@@ -2,6 +2,7 @@
  * Page system type definitions
  */
 
+import type { Link } from "./links";
 import type { WidgetInstance } from "./widgets";
 
 /**
@@ -57,6 +58,10 @@ export interface Page {
 
   // Widgets on this page
   widgets: WidgetInstance[];
+
+  // Widget linking
+  defaultLinkId: string; // UUID of default page link (all widgets start here)
+  pageLinks: Link[]; // Page-scoped links for widget communication
 
   // Default filters for widgets on this page
   defaultFilter?: SolveFilter;

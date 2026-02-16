@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GridWidget from "@/components/GridWidget.vue";
+import LinkSelector from "@/components/LinkSelector.vue";
 import WidgetPicker from "@/components/WidgetPicker.vue";
 import { providePageEvents } from "@/composables/usePageEvents";
 import { getWidgetRegistry } from "@/registry";
@@ -43,6 +44,7 @@ const registry = getWidgetRegistry();
 const pageEvents = providePageEvents();
 
 // Listen to solve finished events and save to database
+// Listen on wildcard to receive from all links
 pageEvents.on("solveFinished", async ({ time, scramble, eventCode }) => {
   try {
     // Get or create default session for this event
@@ -62,16 +64,38 @@ pageEvents.on("solveFinished", async ({ time, scramble, eventCode }) => {
       comment: "",
     });
 
-    // Emit solveSaved event after successful save
-    pageEvents.emit("solveSaved", { solveId });
+    // Emit solveSaved event to all links (global + page)
+    const allLinkIds = [
+      ...pagesStore.globalLinks.map((l) => l.id),
+      ...props.page.pageLinks.map((l) => l.id),
+    ];
+    for (const linkId of allLinkIds) {
+      pageEvents.emit("solveSaved", { solveId }, { linkId });
+    }
   } catch (error) {
     console.error("Failed to save solve:", error);
   }
 });
 
 const showWidgetPicker = ref(false);
+const showLinkSelector = ref(false);
+const selectedWidgetId = ref<string | null>(null);
 const editingName = ref(false);
 const pageName = ref(props.page.name);
+
+const selectedWidget = computed(() =>
+  selectedWidgetId.value
+    ? props.page.widgets.find((w) => w.id === selectedWidgetId.value)
+    : null,
+);
+
+const currentLinkIds = computed(() => {
+  const linkIds = selectedWidget.value?.config.linkIds;
+  if (linkIds && linkIds.length > 0) {
+    return linkIds;
+  }
+  return [props.page.defaultLinkId];
+});
 
 // Grid resize state
 const gridRef = ref<HTMLElement | null>(null);
@@ -222,6 +246,20 @@ function handleRemoveWidget(widgetId: string) {
 function handleConfigureWidget(_widgetId: string) {
   // TODO: Implement widget configuration modal
   message.info("Widget configuration coming soon");
+}
+
+function handleSelectLink(widgetId: string) {
+  selectedWidgetId.value = widgetId;
+  showLinkSelector.value = true;
+}
+
+async function handleLinksUpdated(linkIds: string[]) {
+  if (selectedWidgetId.value) {
+    await pagesStore.updateWidgetConfig(props.page.id, selectedWidgetId.value, {
+      linkIds,
+    });
+    message.success("Widget links updated");
+  }
 }
 
 async function handleUpdateWidgetConfig(
@@ -381,6 +419,7 @@ function cancelEditingName() {
         @update:position="handlePositionUpdate(widget.id, $event)"
         @remove="handleRemoveWidget(widget.id)"
         @configure="handleConfigureWidget(widget.id)"
+        @selectLink="handleSelectLink(widget.id)"
         @updateConfig="handleUpdateWidgetConfig(widget.id, $event)"
       />
 
@@ -409,6 +448,14 @@ function cancelEditingName() {
     <WidgetPicker
       v-model:show="showWidgetPicker"
       @select="handleWidgetSelect"
+    />
+
+    <!-- Link Selector -->
+    <LinkSelector
+      v-model:show="showLinkSelector"
+      :current-link-ids="currentLinkIds"
+      :page-id="page.id"
+      @update="handleLinksUpdated"
     />
   </div>
 </template>

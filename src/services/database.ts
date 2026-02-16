@@ -1,3 +1,4 @@
+import type { Link } from "@/types/links";
 import type { Page } from "@/types/pages";
 import Dexie, { type EntityTable } from "dexie";
 
@@ -38,6 +39,7 @@ const db = new Dexie("FemtimerDB") as Dexie & {
   sessions: EntityTable<Session, "id">;
   pages: EntityTable<Page, "id">;
   tags: EntityTable<Tag, "id">;
+  links: EntityTable<Link, "id">;
 };
 
 // Version 1: Original schema
@@ -62,6 +64,48 @@ db.version(2)
       .modify((solve: Solve) => {
         solve.scrambleType = solve.event || "333";
         solve.tags = solve.tags || [];
+      });
+  });
+
+// Version 3: Add widget linking system
+db.version(3)
+  .stores({
+    solves: "++id, sessionId, scrambleType, pageId, timestamp",
+    sessions: "++id, event, pageId, createdAt",
+    pages: "id, name, isTemplate, sortOrder, createdAt",
+    tags: "id, name, createdAt",
+    links: "id, scope, name, createdAt",
+  })
+  .upgrade(async (tx) => {
+    // Initialize default global link
+    const { getDefaultGlobalLink } = await import("@/types/links");
+    const defaultGlobalLink = getDefaultGlobalLink();
+    await tx.table("links").add(defaultGlobalLink);
+
+    // Migrate existing pages to have default page link
+    const { createLink } = await import("@/types/links");
+    await tx
+      .table("pages")
+      .toCollection()
+      .modify((page: Page) => {
+        const defaultPageLink = createLink("Default", "page");
+        page.pageLinks = [defaultPageLink];
+        page.defaultLinkId = defaultPageLink.id;
+
+        // Migrate widget configs from linkId to linkIds
+        for (const widget of page.widgets) {
+          if (!widget.config.linkIds) {
+            // If widget has old linkId, migrate it
+            const oldLinkId = (widget.config as any).linkId;
+            if (oldLinkId) {
+              widget.config.linkIds = [oldLinkId];
+              delete (widget.config as any).linkId;
+            } else {
+              // Default to page default link
+              widget.config.linkIds = [defaultPageLink.id];
+            }
+          }
+        }
       });
   });
 
@@ -194,4 +238,32 @@ export async function addTag(tag: Tag): Promise<string> {
 
 export async function deleteTag(id: string): Promise<void> {
   await db.tags.delete(id);
+}
+
+// ============================================
+// Link helpers
+// ============================================
+
+export async function getGlobalLinks(): Promise<Link[]> {
+  return await db.links.where("scope").equals("global").toArray();
+}
+
+export async function getAllLinks(): Promise<Link[]> {
+  return await db.links.toArray();
+}
+
+export async function addLink(link: Link): Promise<string> {
+  await db.links.add(link);
+  return link.id;
+}
+
+export async function updateLink(
+  id: string,
+  updates: Partial<Link>,
+): Promise<void> {
+  await db.links.update(id, updates);
+}
+
+export async function deleteLink(id: string): Promise<void> {
+  await db.links.delete(id);
 }

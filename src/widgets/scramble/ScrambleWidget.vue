@@ -38,6 +38,9 @@ const emit = defineEmits<{
 // Page-level event bus for cross-widget communication
 const pageEvents = usePageEvents();
 
+// Link IDs for scoped communication
+const linkIds = computed(() => props.config.linkIds || []);
+
 // Widget state persistence
 const widgetStateStore = useWidgetStateStore();
 
@@ -51,24 +54,36 @@ const persistedState = widgetStateStore.getState<ScrambleWidgetState>(
   props.instanceId,
 );
 
-// Listen for solveFinished event to generate next scramble
-usePageEvent("solveFinished", () => {
+// Listen for solveFinished event to generate next scramble (for all links)
+const solveFinishedHandler = () => {
   generateScramble();
-});
+};
+for (const linkId of linkIds.value) {
+  usePageEvent("solveFinished", solveFinishedHandler, { linkId });
+}
 
 // Listen for requests to re-emit current scramble (for late-mounting widgets)
-usePageEvent("requestCurrentScramble", () => {
+const requestScrambleHandler = () => {
   if (scramble.value && scramble.value !== "Generating...") {
     const eventCode = getEventCode(
       currentCategoryId.value,
       currentScrambleTypeId.value,
     );
-    pageEvents?.emit("scrambleGenerated", {
-      scramble: scramble.value,
-      eventCode,
-    });
+    for (const linkId of linkIds.value) {
+      pageEvents?.emit(
+        "scrambleGenerated",
+        {
+          scramble: scramble.value,
+          eventCode,
+        },
+        { linkId },
+      );
+    }
   }
-});
+};
+for (const linkId of linkIds.value) {
+  usePageEvent("requestCurrentScramble", requestScrambleHandler, { linkId });
+}
 
 const scramble = ref(persistedState?.scramble ?? "Generating...");
 const isGenerating = ref(persistedState?.isGenerating ?? false);
@@ -151,11 +166,17 @@ async function generateScramble() {
     // Emit via component event (for direct parent communication)
     emit("scrambleGenerated", scramble.value);
 
-    // Emit via page event bus (for cross-widget communication)
-    pageEvents?.emit("scrambleGenerated", {
-      scramble: scramble.value,
-      eventCode,
-    });
+    // Emit via page event bus (for cross-widget communication) to all links
+    for (const linkId of linkIds.value) {
+      pageEvents?.emit(
+        "scrambleGenerated",
+        {
+          scramble: scramble.value,
+          eventCode,
+        },
+        { linkId },
+      );
+    }
   } catch {
     scramble.value = "Error generating scramble";
   } finally {
@@ -188,10 +209,16 @@ onMounted(() => {
       currentCategoryId.value,
       currentScrambleTypeId.value,
     );
-    pageEvents?.emit("scrambleGenerated", {
-      scramble: scramble.value,
-      eventCode,
-    });
+    for (const linkId of linkIds.value) {
+      pageEvents?.emit(
+        "scrambleGenerated",
+        {
+          scramble: scramble.value,
+          eventCode,
+        },
+        { linkId },
+      );
+    }
   } else {
     // Generate a new scramble if we don't have a persisted one
     generateScramble();

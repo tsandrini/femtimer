@@ -24,6 +24,9 @@ const props = defineProps<{
 const pagesStore = usePagesStore();
 const currentPageId = computed(() => pagesStore.currentPageId);
 
+// Link IDs for scoped communication
+const linkIds = computed(() => props.config.linkIds || []);
+
 // Store solves in a ref
 const allSolves = ref<Solve[]>([]);
 
@@ -77,10 +80,13 @@ onMounted(() => {
   loadSolves();
 });
 
-// Listen for solveSaved event and reload (ensures DB write is complete)
-usePageEvent("solveSaved", () => {
+// Listen for solveSaved event and reload (ensures DB write is complete) for all links
+const solveSavedHandler = () => {
   loadSolves();
-});
+};
+for (const linkId of linkIds.value) {
+  usePageEvent("solveSaved", solveSavedHandler, { linkId });
+}
 
 // Watch for filter config changes
 watch(

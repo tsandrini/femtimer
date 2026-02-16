@@ -45,6 +45,8 @@ export interface BaseWidgetConfig {
   title?: string;
   showHeader?: boolean;
   borderless?: boolean;
+  /** Link IDs for widget communication groups. Widgets can belong to multiple links. */
+  linkIds?: string[];
 }
 
 /**
